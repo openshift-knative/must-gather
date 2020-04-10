@@ -6,6 +6,7 @@ set -Euox pipefail
 
 COMPONENT="knative.dev"
 BIN=oc
+LOGS_DIR=${LOGS_DIR:-must-gather-logs}
 
 # Describe and Get all api resources of component across cluster
 
@@ -25,7 +26,7 @@ done
 
 # Collect pod logs, describe & get additional resources
 
-NAMESPACES=(knative-eventing knative-serving)
+NAMESPACES=(knative-eventing knative-serving knative-serving-ingress)
 APIRESOURCES=(configmaps pods routes roles rolebindings serviceaccounts services)
 
 for NAMESPACE in ${NAMESPACES[@]}
@@ -50,21 +51,28 @@ done
 
 KEY="knative"
 NAMESPACE="kube-system"
+APIRESOURCES=(clusterroles clusterrolebindings)
 
-APIRESOURCE="clusterroles"
-NAMES=$(${BIN} get ${APIRESOURCE} -o jsonpath="{.items[*].metadata.name}" | tr ' ' '\n' | grep ${KEY})
-for NAME in ${NAMES[@]}
+for APIRESOURCE in ${APIRESOURCES[@]}
 do
-  mkdir -p ${LOGS_DIR}/${NAMESPACE}/${APIRESOURCE}
-  ${BIN} describe ${APIRESOURCE} ${NAME} > ${LOGS_DIR}/${NAMESPACE}/${APIRESOURCE}/${NAME}-describe.log
-  ${BIN} get ${APIRESOURCE} ${NAME} -o=yaml > ${LOGS_DIR}/${NAMESPACE}/${APIRESOURCE}/${NAME}.yaml
+  NAMES=$(${BIN} get ${APIRESOURCE} -o jsonpath="{.items[*].metadata.name}" | tr ' ' '\n' | grep ${KEY})
+  for NAME in ${NAMES[@]}
+  do
+    mkdir -p ${LOGS_DIR}/${NAMESPACE}/${APIRESOURCE}
+    ${BIN} describe ${APIRESOURCE} ${NAME} > ${LOGS_DIR}/${NAMESPACE}/${APIRESOURCE}/${NAME}-describe.log
+    ${BIN} get ${APIRESOURCE} ${NAME} -o=yaml > ${LOGS_DIR}/${NAMESPACE}/${APIRESOURCE}/${NAME}.yaml
+  done
 done
 
-APIRESOURCE="clusterrolebindings"
-NAMES=$(${BIN} get ${APIRESOURCE} -o jsonpath="{.items[*].metadata.name}" | tr ' ' '\n' | grep ${KEY})
-for NAME in ${NAMES[@]}
+
+# Collect operator stuff
+
+NAMESPACE=$(${BIN} get pods --all-namespaces -l name=knative-openshift -o jsonpath="{.items[0].metadata.namespace}")
+PODS=$(${BIN} get pods -n ${NAMESPACE} -o jsonpath="{.items[*].metadata.name}" | tr ' ' '\n' | grep ${KEY})
+mkdir -p ${LOGS_DIR}/${NAMESPACE}/pods
+for POD in ${PODS[@]}
 do
-  mkdir -p ${LOGS_DIR}/${NAMESPACE}/${APIRESOURCE}
-  ${BIN} describe ${APIRESOURCE} ${NAME} > ${LOGS_DIR}/${NAMESPACE}/${APIRESOURCE}/${NAME}-describe.log
-  ${BIN} get ${APIRESOURCE} ${NAME} -o=yaml > ${LOGS_DIR}/${NAMESPACE}/${APIRESOURCE}/${NAME}.yaml
+  ${BIN} logs --all-containers=true -n ${NAMESPACE} ${POD} > ${LOGS_DIR}/${NAMESPACE}/pods/${POD}.log
+  ${BIN} describe pods ${POD} -n ${NAMESPACE} > ${LOGS_DIR}/${NAMESPACE}/pods/${POD}-describe.log
+  ${BIN} get pods ${POD} -n ${NAMESPACE} -o=yaml > ${LOGS_DIR}/${NAMESPACE}/pods/${POD}.yaml
 done
