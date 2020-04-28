@@ -27,7 +27,7 @@ done
 # Collect pod logs, describe & get additional resources
 
 NAMESPACES=(knative-eventing knative-serving knative-serving-ingress)
-APIRESOURCES=(configmaps pods routes roles rolebindings serviceaccounts services)
+APIRESOURCES=(configmaps pods routes roles rolebindings serviceaccounts services leases)
 
 for NAMESPACE in ${NAMESPACES[@]}
 do
