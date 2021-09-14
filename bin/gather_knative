@@ -4,13 +4,12 @@
 
 set -Euox pipefail
 
-COMPONENT="knative.dev"
 BIN=oc
 LOGS_DIR=${LOGS_DIR:-must-gather-logs}
 
-# Describe and Get all api resources of component across cluster
+# Describe and Get all api resources of Serverless across cluster
 
-APIRESOURCES=$(${BIN} get crds -o jsonpath="{.items[*].metadata.name}" | tr ' ' '\n' | grep ${COMPONENT})
+APIRESOURCES=$(${BIN} get crds -o jsonpath="{.items[*].metadata.name}" | tr ' ' '\n' | grep -e knative.dev -e serverless.openshift.io)
 
 for APIRESOURCE in ${APIRESOURCES[@]}
 do
