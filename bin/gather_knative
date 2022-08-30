@@ -23,25 +23,19 @@ do
 done
 
 
-# Collect pod logs, describe & get additional resources
+# Collect oc adm inspect and extra resources in knative system namespaces.
 
 NAMESPACES=(knative-eventing knative-serving knative-serving-ingress)
-APIRESOURCES=(configmaps pods routes roles rolebindings serviceaccounts services leases)
+APIRESOURCES=(roles rolebindings serviceaccounts leases)
 
 for NAMESPACE in ${NAMESPACES[@]}
 do
-  PODS=$(${BIN} get pods -n ${NAMESPACE} -o jsonpath="{.items[*].metadata.name}")
-  mkdir -p ${LOGS_DIR}/${NAMESPACE}/pods
-  for POD in ${PODS[@]}
-  do
-    ${BIN} logs --all-containers=true -n ${NAMESPACE} ${POD} > ${LOGS_DIR}/${NAMESPACE}/pods/${POD}.log
-  done
-
+  ${BIN} adm inspect namespace ${NAMESPACE} --dest-dir=${LOGS_DIR}
   for APIRESOURCE in ${APIRESOURCES[@]}
   do
-    mkdir -p ${LOGS_DIR}/${NAMESPACE}/${APIRESOURCE}
-    ${BIN} describe ${APIRESOURCE} -n ${NAMESPACE} > ${LOGS_DIR}/${NAMESPACE}/${APIRESOURCE}/describe.log
-    ${BIN} get ${APIRESOURCE} -n ${NAMESPACE} -o=yaml > ${LOGS_DIR}/${NAMESPACE}/${APIRESOURCE}/get.yaml
+    mkdir -p ${LOGS_DIR}/namespaces/${NAMESPACE}/extra/${APIRESOURCE}
+    ${BIN} describe ${APIRESOURCE} -n ${NAMESPACE} > ${LOGS_DIR}/namespaces/${NAMESPACE}/extra/${APIRESOURCE}/describe.log
+    ${BIN} get ${APIRESOURCE} -n ${NAMESPACE} -o=yaml > ${LOGS_DIR}/namespaces/${NAMESPACE}/extra/${APIRESOURCE}/get.yaml
   done
 done
 
@@ -67,11 +61,4 @@ done
 # Collect operator stuff
 
 NAMESPACE=$(${BIN} get pods --all-namespaces -l name=knative-openshift -o jsonpath="{.items[0].metadata.namespace}")
-PODS=$(${BIN} get pods -n ${NAMESPACE} -o jsonpath="{.items[*].metadata.name}" | tr ' ' '\n' | grep ${KEY})
-mkdir -p ${LOGS_DIR}/${NAMESPACE}/pods
-for POD in ${PODS[@]}
-do
-  ${BIN} logs --all-containers=true -n ${NAMESPACE} ${POD} > ${LOGS_DIR}/${NAMESPACE}/pods/${POD}.log
-  ${BIN} describe pods ${POD} -n ${NAMESPACE} > ${LOGS_DIR}/${NAMESPACE}/pods/${POD}-describe.log
-  ${BIN} get pods ${POD} -n ${NAMESPACE} -o=yaml > ${LOGS_DIR}/${NAMESPACE}/pods/${POD}.yaml
-done
+${BIN} adm inspect namespace ${NAMESPACE} --dest-dir=${LOGS_DIR}
